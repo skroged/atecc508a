@@ -25,6 +25,8 @@ defmodule ATECC508A.Request do
   @atecc508a_op_genkey 0x40
   @atecc508a_op_lock 0x17
   @atecc508a_op_random 0x1B
+  @atecc508a_op_sign 0x41
+  @atecc508a_op_nonce 0x16
 
   # See https://github.com/MicrochipTech/cryptoauthlib/blob/master/lib/atca_execution.c
   # for command max execution times. I'm not sure why they are different from the
@@ -107,6 +109,56 @@ defmodule ATECC508A.Request do
       <<@atecc508a_op_genkey, 0::3, mode4::1, mode3::1, mode2::1, 0::2, key_id::little-16>>
 
     Transport.request(transport, payload, 653, 64)
+    |> interpret_result()
+  end
+
+  @doc """
+  Create a sign request message.
+  """
+  def sign(transport, input_loc, insclude_sn?, key_id) do
+
+    mode7 =
+      case input_location do
+        :external ->
+          1
+        :internal ->
+          0
+        _ ->
+          raise "input_location must be one of [:external, :internal]"
+      end
+    mode6 =  if insclude_sn?,  do: 1, else: 0
+
+    payload =
+      <<@atecc508a_op_sign, mode7::1, mode6::1, 0::6, key_id::little-16>>
+
+    Transport.request(transport, payload, 653, 64)
+    |> interpret_result()
+  end
+
+  @doc """
+  Create a nonce request message.
+  """
+  def nonce(mode, data) do
+
+    {mode1, mode0, data_length, response_length} =
+      case mode do
+        :combine_new_seed ->
+          byte_size(data) == 20 || raise "Data length must be 20 for mode :combine_new_seed"
+          {0, 0, 20, 32}
+        :combine_existing_seed ->
+          byte_size(data) == 20 || raise "Data length must be 20 for mode :combine_existing_seed"
+          {0, 1, 20, 32}
+        :passthrough ->
+          {1, 1, 32, 1}
+          byte_size(data) == 20 || raise "Data length must be 32 for mode :passthrough"
+        _ ->
+          raise "mode must be one of [:combine_new_seed, :combine_existing_seed, :passthrough]"
+      end
+
+    payload =
+      <<@atecc508a_op_nonce, 0::6, mode1::1, mode0::1, data::binary>>
+
+    Transport.request(transport, payload, 653, response_length)
     |> interpret_result()
   end
 
