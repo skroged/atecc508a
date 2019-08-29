@@ -115,7 +115,7 @@ defmodule ATECC508A.Request do
   @doc """
   Create a sign request message.
   """
-  def sign(transport, input_loc, insclude_sn?, key_id) do
+  def sign(transport, input_location, insclude_sn?, key_id) do
 
     mode7 =
       case input_location do
@@ -138,7 +138,7 @@ defmodule ATECC508A.Request do
   @doc """
   Create a nonce request message.
   """
-  def nonce(mode, data) do
+  def nonce(transport, mode, data) do
 
     {mode1, mode0, data_length, response_length} =
       case mode do
